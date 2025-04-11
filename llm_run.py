@@ -35,7 +35,8 @@ llama_cpp.llama_print_system_info = lambda: b""
 
 model_path = "llm/mistral-7b-instruct-v0.1.Q5_K_M.gguf"
 num_cores = os.cpu_count()
-n_threads = int(max(1, (num_cores - 1) / 2))
+# n_threads = int(max(1, (num_cores - 1) / 2))
+n_threads = 4
 # Load model silently
 with suppress_stdout_stderr():
     llm = Llama(
