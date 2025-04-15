@@ -1,5 +1,7 @@
 __pycache__/
-*.db
 llm/
+log/
+*.db
 *.csv
+*.txt
 !.gitkeep
