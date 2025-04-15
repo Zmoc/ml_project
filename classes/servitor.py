@@ -31,7 +31,7 @@ class Servitor:
         self.conn.commit()
         self.store_conversation(" ", " ")
         llama_cpp.llama_print_system_info = lambda: b""
-        with open("config.yaml", "r") as f:
+        with open("config/config.yaml", "r") as f:
             config = yaml.safe_load(f)
         model_path = config["llm"]["path"]
         n_threads = config["llm"]["n_threads"]
@@ -124,9 +124,9 @@ class Servitor:
     def intent(self, user_input, prefix="", suffix=""):
         """Determines the user's intent based on input."""
         last_conversations = self.retrieve_last_conversations(3)
-        context = "\n".join(
+        """context = "\n".join(
             [f"User: {conv[0]}\nAgent: {conv[1]}" for conv in last_conversations]
-        )
+        )"""
         framed_input = f"{prefix.strip()} {user_input.strip()} {suffix.strip()}".strip()
         intent_prompt = f"""[INST]
 

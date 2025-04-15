@@ -16,8 +16,8 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-training_path = "dataset_lanl/training_final.csv"
-testing_path = "dataset_lanl/testing_final.csv"
+training_path = "data/training_final.csv"
+testing_path = "data/testing_final.csv"
 
 
 class TimeSeriesDataset(Dataset):
