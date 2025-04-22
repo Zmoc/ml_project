@@ -3,21 +3,17 @@ import os
 import sqlite3
 import sys
 
-import llama_cpp
-import yaml
-from llama_cpp import Llama
 
-from classes.port_scan import Port_Tools
+class Brain:
+    def __init__(self, model_path):
+        self.brain_path = model_path
 
 
 class Servitor:
-    def __init__(self):
-        self.role_frame = (
-            "You are a cybersecurity agent tasked with defending the local system."
-        )
+    def __init__(self, config_path, brain: Brain = None):
+        self.config_path = config_path
         self.conn = sqlite3.connect("agent_memory.db")
         self.c = self.conn.cursor()
-
         self.c.execute(
             """
             CREATE TABLE IF NOT EXISTS conversations (
@@ -29,9 +25,33 @@ class Servitor:
         """
         )
         self.conn.commit()
-        self.store_conversation(" ", " ")
+
+        if brain:
+            self.brain_exist = True
+            self.llm_startup(self.config_path, brain.brain_path)
+            self.get_input()
+        else:
+            self.brain_exist = False
+            self.default_routine()
+            pass
+
+    def default_routine(self):
+        print(f"Configurations loaded, Model: None, Threads: N/A, Device: CPU")
+        print("Brain not loaded, reverting to Default Routine")
+        print(
+            "My name is Servitor. I am a cybersecurity agent tasked with defending your local system."
+        )
+
+    def llm_startup(self, config_path):
+        import llama_cpp
+        import yaml
+        from llama_cpp import Llama
+
+        self.role_frame = (
+            "You are a cybersecurity agent tasked with defending the local system."
+        )
         llama_cpp.llama_print_system_info = lambda: b""
-        with open("config/config.yaml", "r") as f:
+        with open(config_path, "r") as f:
             config = yaml.safe_load(f)
         model_path = config["llm"]["path"]
         n_threads = config["llm"]["n_threads"]
@@ -45,20 +65,21 @@ class Servitor:
                 n_gpu_layers=0,
                 # device=device,
             )
-        print("Brain loaded")
         print(
             f"Configurations loaded, Model: {model_path}, Threads: {n_threads}, Device: {device}"
         )
+        print("Brain loaded")
         print(
             "My name is Servitor. I am a cybersecurity agent tasked with defending your local system."
         )
-        self.get_input()
 
     def get_input(self):
+        from classes.port_scan import Port_Tools
+
         print("Servitor is ready. Type your command:")
         while True:
             try:
-                user_input = input("> ")
+                user_input = input(">:")
             except (KeyboardInterrupt, EOFError):
                 print("\n Agent exiting.")
                 break
@@ -84,7 +105,6 @@ class Servitor:
 
                 elif intent == "ignore":
                     print("No action required.")
-
                 elif intent == "request_clarification":
                     print("I need more context to understand the command.")
 
@@ -123,7 +143,7 @@ class Servitor:
 
     def intent(self, user_input, prefix="", suffix=""):
         """Determines the user's intent based on input."""
-        last_conversations = self.retrieve_last_conversations(3)
+        # last_conversations = self.retrieve_last_conversations(3)
         """context = "\n".join(
             [f"User: {conv[0]}\nAgent: {conv[1]}" for conv in last_conversations]
         )"""
@@ -166,7 +186,6 @@ Only use these keywords exactly.[/INST]
     """
         return self.query(summary_prompt, max_tokens=512)
 
-    # Function to store conversation
     def store_conversation(self, user_input, agent_response):
         self.c.execute(
             """
@@ -177,7 +196,6 @@ Only use these keywords exactly.[/INST]
         )
         self.conn.commit()
 
-    # Retrieve the last N conversations (example: last 5)
     def retrieve_last_conversations(self, n):
         self.c.execute(
             "SELECT user_input, agent_response FROM conversations ORDER BY timestamp DESC LIMIT ?",
