@@ -1,6 +1,5 @@
 import contextlib
 import os
-import sqlite3
 import sys
 
 
@@ -12,19 +11,6 @@ class Brain:
 class Servitor:
     def __init__(self, config_path, brain: Brain = None):
         self.config_path = config_path
-        self.conn = sqlite3.connect("agent_memory.db")
-        self.c = self.conn.cursor()
-        self.c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY,
-                user_input TEXT,
-                agent_response TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """
-        )
-        self.conn.commit()
 
         if brain:
             self.brain_exist = True
@@ -33,14 +19,19 @@ class Servitor:
         else:
             self.brain_exist = False
             self.default_routine()
-            pass
 
     def default_routine(self):
+        # from classes.network import scan_traffic
+
         print(f"Configurations loaded, Model: None, Threads: N/A, Device: CPU")
         print("Brain not loaded, reverting to Default Routine")
         print(
             "My name is Servitor. I am a cybersecurity agent tasked with defending your local system."
         )
+        print(
+            "This is a demonstration of my capabilities without a Large Language Model installed. For this demonstration, I will attempt to detect anomalous behavior on the system using a Long Short-Term Memory neural network."
+        )
+        # scan_traffic(csv_path="data/testing_final.csv",model_path="data/lstm_autoencoder.pth",threshold=1,)
 
     def llm_startup(self, config_path):
         import llama_cpp
@@ -143,10 +134,6 @@ class Servitor:
 
     def intent(self, user_input, prefix="", suffix=""):
         """Determines the user's intent based on input."""
-        # last_conversations = self.retrieve_last_conversations(3)
-        """context = "\n".join(
-            [f"User: {conv[0]}\nAgent: {conv[1]}" for conv in last_conversations]
-        )"""
         framed_input = f"{prefix.strip()} {user_input.strip()} {suffix.strip()}".strip()
         intent_prompt = f"""[INST]
 
@@ -185,23 +172,6 @@ Only use these keywords exactly.[/INST]
     Please summarize this report and highlight any ports or services that might require security review.[/INST]
     """
         return self.query(summary_prompt, max_tokens=512)
-
-    def store_conversation(self, user_input, agent_response):
-        self.c.execute(
-            """
-            INSERT INTO conversations (user_input, agent_response)
-            VALUES (?, ?)
-        """,
-            (user_input, agent_response),
-        )
-        self.conn.commit()
-
-    def retrieve_last_conversations(self, n):
-        self.c.execute(
-            "SELECT user_input, agent_response FROM conversations ORDER BY timestamp DESC LIMIT ?",
-            (n,),
-        )
-        return self.c.fetchall()
 
 
 @contextlib.contextmanager
