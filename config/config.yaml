@@ -1,0 +1,8 @@
+agent:
+  mode: active
+  response_level: high
+
+llm:
+  path: llm/mistral-7b-instruct-v0.1.Q4_K_M.gguf
+  n_threads: 8
+  device: cpu

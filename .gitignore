@@ -1,3 +1,8 @@
 __pycache__/
-*.db
+dataset_lanl/
 llm/
+log/
+*.db
+*.csv
+*.txt
+!.gitkeep
