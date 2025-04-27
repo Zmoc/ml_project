@@ -4,7 +4,6 @@ import sys
 import nmap
 from scapy.all import IP, TCP, wrpcap
 import random
-import pyshark
 import re
 
 
@@ -31,9 +30,10 @@ class Servitor:
         import yaml
         from llama_cpp import Llama
 
-        self.persona = (
-            "You are a cybersecurity agent tasked with defending the local system."
-        )
+        self.persona = {
+            "role": "system",
+            "content": "You are a cybersecurity agent tasked with defending the local system. You are knowledgable and patient.",
+        }
         llama_cpp.llama_print_system_info = lambda: b""
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
@@ -63,7 +63,6 @@ class Servitor:
     def get_input(self):
         print("Servitor is ready. Type your command:")
 
-        # Dictionary to map intents to functions
         actions = {
             "scan_ports": self.scan_ports,
             "simulate_ddos": self.sim_ddos,
@@ -102,9 +101,14 @@ class Servitor:
             print(f"[!] Failed to summarize report: {e}")
 
     def summarize_logs(self):
-        with open("data/logs/logs.txt") as f:
-            log_text = f.readlines()
-        log_prompt = "This file includes a variety of logs such as error messages, warnings, and informational logs that were seen in the system."
+        with open("data/logs/logs.txt", "r") as f:
+            text = f.readlines()
+
+        log_text = {"role": "user", "content": text}
+        log_prompt = {
+            "role": "user",
+            "content": "This file includes a variety of logs such as error messages, warnings, and informational logs that were seen in the system.",
+        }
         try:
             print("Generating report summary...")
             summary = self.summarize_report(log_text, log_prompt)
@@ -145,7 +149,7 @@ class Servitor:
 
         nm.scan(
             hosts=target_ip,
-            arguments="-p 20,21,22,23,25,53,80,443,110,143,161,162,3306,3389,445,5900,8080,5060 -sV",
+            arguments="-p 20,21,22,23,25,53,80,443",
         )
 
         scan_result = ""
@@ -167,11 +171,13 @@ class Servitor:
                         f"Service: {service_name}, Version: {service_version}\n"
                     )
 
-        report_type_prompt = (
-            "These are the results of an NMAP port scan. "
-            "They describe the status of all ports on the system and what services are currently running."
-        )
-        return scan_result, report_type_prompt
+        scan_dict = {"role": "user", "content": scan_result}
+
+        report_type_prompt = {
+            "role": "system",
+            "content": "These are the results of an NMAP port scan. They describe the status of all ports on the system and what services are currently running.",
+        }
+        return scan_dict, report_type_prompt
 
     def sim_syn_flood(self, target_ip, target_port, num_packets, output_pcap):
         packets = []
@@ -195,11 +201,10 @@ class Servitor:
 
     def traffic_scan(self):
         traffic_results = self.evaluate_traffic("data/shark/log.pcap")
-        report_type_prompt = (
-            "These are the results of a Wireshark pcap scan. "
-            "They describe the number of packets that were captured and other information "
-            "about them along with suspicion scores for SYN flood and a DDos attack."
-        )
+        report_type_prompt = {
+            "role": "user",
+            "content": "These are the results of a Wireshark pcap scan. They describe the number of packets that were captured and other information about them along with suspicion scores for SYN flood and a DDos attack.",
+        }
         return traffic_results, report_type_prompt
 
     def evaluate_traffic(self, pcap_file):
@@ -217,7 +222,7 @@ class Servitor:
         syn_packets = []
         source_ips = Counter()
         target_ips = Counter()
-        ignored_packets = 0  # To track ignored packets
+        ignored_packets = 0
 
         start_time = time.time()
 
@@ -225,10 +230,9 @@ class Servitor:
             try:
                 total_packets += 1
                 tcp_flags = int(packet.tcp.flags, 16)
-                syn_flag_set = tcp_flags & 0x02  # SYN flag
-                ack_flag_set = tcp_flags & 0x10  # ACK flag
+                syn_flag_set = tcp_flags & 0x02
+                ack_flag_set = tcp_flags & 0x10
 
-                # Count SYN packets without ACK (SYN flood)
                 if syn_flag_set and not ack_flag_set:
                     src_ip = packet.ip.src
                     dst_ip = packet.ip.dst
@@ -238,21 +242,18 @@ class Servitor:
                     target_ips[dst_ip] += 1
 
             except AttributeError:
-                ignored_packets += 1  # Count packets missing IP/TCP info
-                continue  # Skip packets that lack IP/TCP fields
+                ignored_packets += 1
+                continue
 
         cap.close()
 
-        # Report generation
         output = ""
 
-        # Time statistics
         duration = time.time() - start_time
         output += f"Processed {total_packets} packets in {duration:.2f} seconds.\n"
         if ignored_packets > 0:
             output += f"Warning: Ignored {ignored_packets} packets due to missing IP/TCP fields.\n"
 
-        # --- SYN Flood Detection ---
         output += "\n--- SYN Flood Evaluation ---\n"
         output += f"Total packets: {total_packets}\n"
         output += f"SYN packets without ACK: {syn_count}\n"
@@ -270,7 +271,6 @@ class Servitor:
         else:
             output += "Traffic looks normal.\n"
 
-        # --- DDoS Detection ---
         output += "\n--- DDoS Evaluation ---\n"
         output += f"Unique attacking IPs: {len(source_ips)}\n"
         output += f"Most targeted IP: {target_ips.most_common(1)}\n"
@@ -286,12 +286,10 @@ class Servitor:
         else:
             output += "No strong evidence of DDoS attack.\n"
 
-        # Additional insights
         output += "\n--- Additional Traffic Insights ---\n"
         output += f"Most active source IP: {source_ips.most_common(1)}\n"
         output += f"Most targeted destination IP: {target_ips.most_common(1)}\n"
 
-        # Provide a more nuanced DDoS analysis if needed
         if len(source_ips) > 5 and len(target_ips) > 1:
             high_traffic_ips = [ip for ip, count in source_ips.items() if count > 50]
             if high_traffic_ips:
@@ -301,19 +299,23 @@ class Servitor:
                     + "\n"
                 )
 
-        return output
+        traffic_report_dict = {"role": "user", "content": output}
 
-    def query(self, prompt, max_tokens=512):
-        response = self.llm(
-            prompt,
+        return traffic_report_dict
+
+    def query(
+        self, messages: list, temperature: float = 0.0, max_tokens: int = 512
+    ) -> str:
+        # response = self.llm(prompt,max_tokens=max_tokens,echo=False,stream=False,temperature=0.01,top_p=0.95,)
+        response = self.llm.create_chat_completion(
+            messages=messages,
             max_tokens=max_tokens,
-            echo=False,
             stream=False,
-            temperature=0.01,
+            temperature=temperature,
             top_p=0.95,
         )
 
-        response_text = response["choices"][0]["text"].strip()
+        response_text = response["choices"][0]["message"]["content"].strip()
         response_text = "\n".join(
             [line.strip() for line in response_text.splitlines() if line.strip()]
         )
@@ -322,27 +324,24 @@ class Servitor:
 
         return response_text
 
-    def intent(self, user_input, prefix="", suffix=""):
+    def intent(self, user_input: str, prefix: str = "", suffix: str = "") -> str:
         """Determines the user's intent based on input."""
         framed_input = f"{prefix.strip()} {user_input.strip()} {suffix.strip()}".strip()
-        intent_prompt = f"""[INST]
-
-    {self.persona}
-
-    Decide what the following instruction is asking you to do.
-
-    Instruction: "{framed_input}"
-
-    Respond with only one of the following:
-        scan_ports
-        simulate_ddos
-        scan_traffic
-        summarize_logs
-        ignore
-        request_clarification
-
-        Only use these keywords exactly. Do not explain, only respond with one word.[/INST]
-    """
+        intent_prompt = [
+            self.persona,
+            {
+                "role": "user",
+                "content": "Decide what the following instruction is asking you to do.",
+            },
+            {"role": "user", "content": framed_input},
+            {
+                "role": "user",
+                "content": "Respond with only one of the following words: scan_ports, simulate_ddos, scan_traffic, summarize_logs, ignore, request_clarification",
+            },
+            {"role": "user", "content": "Only use these keywords exactly."},
+            {"role": "user", "content": "Do not explain your choice."},
+            {"role": "user", "content": "Only respond with one word."},
+        ]
         llm_response = self.query(intent_prompt)
 
         response_normalized = re.sub(r"\\_", "_", llm_response.strip().lower())
@@ -358,19 +357,32 @@ class Servitor:
             "request_clarification": "request_clarification",
         }.get(response_normalized, "unrecognized")
 
-    def summarize_report(self, report_text, report_prompt):
+    def summarize_report(self, report_text: dict, report_prompt: dict) -> str:
         """Asks the LLM to summarize the port scan report."""
-        summary_prompt = f"""[INST]
-    {self.persona}
-    {report_prompt}
-    {report_text}
 
-    Please summarize this report and highlight any items that might require a security review.
-    Explain it at to someone that doesn't have a strong background in cybersecurity.
-    Be specific and give actionable steps on how to address the issues.
-    When possible, give specific times and items to focus on.[/INST]
-    """
-        return self.query(summary_prompt, max_tokens=512)
+        summary_prompt = [
+            self.persona,
+            report_prompt,
+            report_text,
+            {
+                "role": "user",
+                "content": "Please summarize this report and highlight any items that might require a security review.",
+            },
+            {
+                "role": "user",
+                "content": "Explain it at to someone that doesn't have a strong background in cybersecurity.",
+            },
+            {
+                "role": "user",
+                "content": "Be specific and give actionable steps on how to address the issues.",
+            },
+            {
+                "role": "user",
+                "content": "When possible, give specific times and items to focus on.",
+            },
+        ]
+
+        return self.query(summary_prompt, temperature=0.2, max_tokens=512)
 
 
 @contextlib.contextmanager
