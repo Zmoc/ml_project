@@ -7,7 +7,7 @@ import torch.optim as optim
 from sklearn.metrics import precision_score, recall_score, f1_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from time_series_dataset import TimeSeriesDataset
+from models.event_scan.archive.time_series_dataset import TimeSeriesDataset
 from torch.nn import MSELoss
 
 # %%
