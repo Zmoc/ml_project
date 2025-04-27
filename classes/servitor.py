@@ -80,7 +80,7 @@ class Servitor:
                 break
 
             if user_input.lower() in ["exit", "quit"]:
-                print("Agent exiting.")
+                print("Servitor quitting...")
                 break
 
             intent = self.intent(user_input)
