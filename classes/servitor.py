@@ -83,8 +83,8 @@ class Servitor:
             if user_input.lower() in ["exit", "quit"]:
                 print("Agent exiting.")
                 break
-            with suppress_stdout_stderr():
-                intent = self.intent(user_input)
+
+            intent = self.intent(user_input)
 
             try:
                 action = actions.get(intent, self.handle_unrecognized)
@@ -145,12 +145,7 @@ class Servitor:
 
         nm.scan(
             hosts=target_ip,
-            arguments=(
-                "-p 20,21,22,23,25,53,"
-                "80,443,110,143,161,162,"
-                "3306,3389,445,5900,8080,5060"
-                " -sV",
-            ),
+            arguments="-p 20,21,22,23,25,53,80,443,110,143,161,162,3306,3389,445,5900,8080,5060 -sV",
         )
 
         scan_result = ""
@@ -314,7 +309,7 @@ class Servitor:
             max_tokens=max_tokens,
             echo=False,
             stream=False,
-            temperature=0.7,
+            temperature=0.01,
             top_p=0.95,
         )
 
@@ -346,11 +341,13 @@ class Servitor:
         ignore
         request_clarification
 
-        Only use these keywords exactly.[/INST]
+        Only use these keywords exactly. Do not explain, only respond with one word.[/INST]
     """
         llm_response = self.query(intent_prompt)
 
         response_normalized = re.sub(r"\\_", "_", llm_response.strip().lower())
+
+        print(f"Response used for intent: {response_normalized}")
 
         return {
             "scan_ports": "scan_ports",
@@ -369,6 +366,7 @@ class Servitor:
     {report_text}
 
     Please summarize this report and highlight any items that might require a security review.
+    Explain it at to someone that doesn't have a strong background in cybersecurity.
     Be specific and give actionable steps on how to address the issues.
     When possible, give specific times and items to focus on.[/INST]
     """
